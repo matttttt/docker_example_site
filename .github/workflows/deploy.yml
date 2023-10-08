@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  workflow_dispatch:  # Manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Log in to GitHub Container Registry
+      run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: Pull Docker image from GitHub Container Registry
+      run: docker pull ghcr.io/${{ github.repository }}:latest
+    
+    - name: Save Docker Image to Tarball
+      run: docker save -o ${{ github.repository_name }}.tar ghcr.io/${{ github.repository }}:latest
+
+    - name: Setup SSH Key and Connect to Server
+      env:
+        PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_DOCKER }}
+        SERVER_IP: ${{ secrets.SERVER_IP }}
+      run: |
+        mkdir -p ~/.ssh/
+        echo "$PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+        scp ${{ github.repository_name }}.tar root@$SERVER_IP:/home/${{ github.repository_name }}.tar
+        ssh root@$SERVER_IP "podman load -i /home/${{ github.repository_name }}.tar"
+
+    - name: Replace the Container with Podman on Remote Server
+      env:
+        SERVER_IP: ${{ secrets.SERVER_IP }}
+      run: |
+        ssh root@$SERVER_IP "podman stop ${{ github.repository_name }} || true"
+        ssh root@$SERVER_IP "podman rm ${{ github.repository_name }} || true"
+        ssh root@$SERVER_IP "podman run -d -p 74:80 --name ${{ github.repository_name }} ghcr.io/${{ github.repository }}:latest"
