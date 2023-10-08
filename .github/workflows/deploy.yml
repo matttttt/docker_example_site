@@ -37,4 +37,4 @@ jobs:
       run: |
         ssh root@$SERVER_IP "podman stop ${{ github.repository_name }} || true"
         ssh root@$SERVER_IP "podman rm ${{ github.repository_name }} || true"
-        ssh root@$SERVER_IP "podman run -d -p 74:80 --name ${{ github.repository_name }} ghcr.io/${{ github.repository }}:latest"
+        ssh root@$SERVER_IP "podman run -d -p 74:80 -v /home/docker_example_site_data:/usr/share/nginx/html/data --name ${{ github.repository_name }} ghcr.io/${{ github.repository }}:latest"
