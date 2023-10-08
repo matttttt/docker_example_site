@@ -1,1 +1,1 @@
-# basic example site with in a docker
+# basic example site in a docker
